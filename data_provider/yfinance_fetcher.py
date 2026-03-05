@@ -137,29 +137,32 @@ class YfinanceFetcher(BaseFetcher):
     def _fetch_raw_data(self, stock_code: str, start_date: str, end_date: str) -> pd.DataFrame:
         """
         从 Yahoo Finance 获取原始数据
-        
-        使用 yfinance.download() 获取历史数据
-        
-        流程：
-        1. 转换股票代码格式
-        2. 调用 yfinance API
-        3. 处理返回数据
         """
         import yfinance as yf
+        from datetime import datetime, timedelta # 【新增】导入时间模块
         
         # 转换代码格式
         yf_code = self._convert_stock_code(stock_code)
         
-        logger.debug(f"调用 yfinance.download({yf_code}, {start_date}, {end_date})")
+        # --- 【核心修复】：解决 yfinance 的 end 日期“左闭右开”陷阱 ---
+        try:
+            # 假设传入的格式是 YYYY-MM-DD，强制加一天
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            yf_end_date = (end_dt + timedelta(days=1)).strftime("%Y-%m-%d")
+        except Exception as e:
+            logger.warning(f"日期格式解析失败，使用原日期: {e}")
+            yf_end_date = end_date
+        
+        logger.debug(f"调用 yfinance.download({yf_code}, start={start_date}, end={yf_end_date})")
         
         try:
             # 使用 yfinance 下载数据
             df = yf.download(
                 tickers=yf_code,
                 start=start_date,
-                end=end_date,
-                progress=False,  # 禁止进度条
-                auto_adjust=True,  # 自动调整价格（复权）
+                end=yf_end_date,   # 【修改】传入加了一天之后的日期
+                progress=False,    
+                auto_adjust=True,  
                 multi_level_index=True
             )
             
