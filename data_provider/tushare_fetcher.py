@@ -331,17 +331,9 @@ class TushareFetcher(BaseFetcher):
         
         is_etf = _is_etf_code(stock_code)
         api_name = "fund_daily" if is_etf else "daily"
-        if ts_code.endswith('.HK'):
-            api_name = "hk_daily" # 【新增】记录港股接口名
         logger.debug(f"调用 Tushare {api_name}({ts_code}, {ts_start}, {ts_end})")
         
         try:
-            if ts_code.endswith('.HK'):
-                df = self._api.hk_daily(
-                    ts_code=ts_code,
-                    start_date=ts_start,
-                    end_date=ts_end,
-                )
             if is_etf:
                 # ETF uses fund_daily interface
                 df = self._api.fund_daily(
