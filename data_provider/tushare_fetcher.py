@@ -270,7 +270,10 @@ class TushareFetcher(BaseFetcher):
         # Already has suffix
         if '.' in code:
             return code.upper()
-        
+        if code.upper().startswith('HK'):
+            hk_code = code[2:].lstrip('0') or '0'
+            hk_code = hk_code.zfill(4) # Tushare 港股一般是 4位或5位数字
+            return f"{hk_code}.HK"
         # ETF: determine exchange by prefix
         if code.startswith(_ETF_SH_PREFIXES) and len(code) == 6:
             return f"{code}.SH"
@@ -328,9 +331,17 @@ class TushareFetcher(BaseFetcher):
         
         is_etf = _is_etf_code(stock_code)
         api_name = "fund_daily" if is_etf else "daily"
+        if ts_code.endswith('.HK'):
+            api_name = "hk_daily" # 【新增】记录港股接口名
         logger.debug(f"调用 Tushare {api_name}({ts_code}, {ts_start}, {ts_end})")
         
         try:
+            if ts_code.endswith('.HK'):
+                df = self._api.hk_daily(
+                    ts_code=ts_code,
+                    start_date=ts_start,
+                    end_date=ts_end,
+                )
             if is_etf:
                 # ETF uses fund_daily interface
                 df = self._api.fund_daily(
@@ -433,7 +444,12 @@ class TushareFetcher(BaseFetcher):
             ts_code = self._convert_stock_code(stock_code)
             
             # ETF uses fund_basic, regular stocks use stock_basic
-            if _is_etf_code(stock_code):
+            if ts_code.endswith('.HK'):
+                df = self._api.hk_basic(
+                    ts_code=ts_code,
+                    fields='ts_code,name'
+                )
+            elif _is_etf_code(stock_code):
                 df = self._api.fund_basic(
                     ts_code=ts_code,
                     fields='ts_code,name'
