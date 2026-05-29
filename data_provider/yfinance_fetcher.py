@@ -207,7 +207,7 @@ class YfinanceFetcher(BaseFetcher):
         
         # 重置索引，将日期从索引变为列
         df = df.reset_index()
-        logger.debug(df.columns.tolist())
+        print(df.columns.tolist())
         
         # 列名映射（yfinance 使用首字母大写）
         column_mapping = {
