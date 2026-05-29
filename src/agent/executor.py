@@ -22,6 +22,7 @@ from json_repair import repair_json
 
 from src.agent.llm_adapter import LLMToolAdapter
 from src.agent.tools.registry import ToolRegistry
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -437,7 +438,35 @@ class AgentExecutor:
                     thinking_msg = f"「{label}」已完成，继续深入分析..."
                 progress_callback({"type": "thinking", "step": step + 1, "message": thinking_msg})
 
-            response = self.llm_adapter.call_with_tools(messages, tool_decls)
+            MAX_RETRIES = 6
+
+            for attempt in range(MAX_RETRIES):
+                try:
+                    response = self.llm_adapter.call_with_tools(messages, tool_decls)
+                    break
+            
+                except Exception as e:
+                    err = str(e)
+            
+                    retryable = any(x in err for x in [
+                        "503",
+                        "UNAVAILABLE",
+                        "high demand",
+                        "rate limit",
+                        "timeout",
+                    ])
+            
+                    if not retryable or attempt == MAX_RETRIES - 1:
+                        raise
+            
+                    wait = (2 ** attempt) + random.uniform(0, 1)
+            
+                    logger.warning(
+                        f"LLM call failed (attempt {attempt+1}/{MAX_RETRIES}), "
+                        f"retrying in {wait:.1f}s: {e}"
+                    )
+            
+                    time.sleep(wait)
             provider_used = response.provider
             total_tokens += response.usage.get("total_tokens", 0)
 
